@@ -3,11 +3,16 @@ import dspy
 import asyncio
 
 from typing import List, Optional
-from pydantic import BaseModel, Field
 
 import random
 import pandas as pd
+from dotenv import load_dotenv
+import os
 
+from pydantic import BaseModel
+
+load_dotenv()  # Load environment variables from .env file
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")  # Retrieve the API key from environment variables
 # import mlflow
 # mlflow.autolog()
 # mlflow.set_tracking_uri("http://localhost:5000")
@@ -24,7 +29,7 @@ class Blog(BaseModel):
     intro: str
     body: str
     conclusion: str
-
+    
 
 class Base(dspy.Signature):
     """
@@ -65,26 +70,24 @@ class ConditionalEvaluator(dspy.Module):
                  num_samples: int = 3,
                  temp1:float = 0.7,
                  temp2:float = 0.7,
-                 judge_agent: str = 'phi3:mini',
-                 api_base: str = "http://localhost:11434"):
+                 judge_agent: str = 'gemini/gemini-3-flash-preview',):
         
         self.num_samples = num_samples
         self.agent1 = agent1
         self.agent2 = agent2
         self.judge_agent = judge_agent
-        self.api_base = api_base
         self.temp1 = temp1
         self.temp2 = temp2
 
         self.base_blog = dspy.ChainOfThought(Base)
-        self.base_blog.set_lm(lm=dspy.LM(self.agent1, temperature=self.temp1, api_base=self.api_base))
+        self.base_blog.set_lm(lm=dspy.LM(self.agent1, temperature=self.temp1, api_key = GOOGLE_API_KEY))
         self.adv_blog = dspy.ChainOfThought(advance)
-        self.adv_blog.set_lm(lm=dspy.LM(self.agent2, temperature=self.temp2, api_base=self.api_base))
+        self.adv_blog.set_lm(lm=dspy.LM(self.agent2, temperature=self.temp2, api_key = GOOGLE_API_KEY))
         self.judge = dspy.Refine(
             module = dspy.ChainOfThought(Judge),
             N=3, reward_fn=check_score_goodness, threshold=1
             )
-        self.judge.set_lm(lm=dspy.LM(self.judge_agent, temperature=0.0, api_base=self.api_base))
+        self.judge.set_lm(lm=dspy.LM(self.judge_agent, temperature=0.0, api_key = GOOGLE_API_KEY))
         self.reflection = 2
         
     async def aforward(self, query):
@@ -99,8 +102,8 @@ class ConditionalEvaluator(dspy.Module):
         return blog
     
 async def main():
-    base_llms = ['ollama/qwen2.5:1.5b', 'ollama/qwen2.5:0.5b']
-    adv_llms = ['ollama/qwen2.5:1.5b', 'ollama/qwen2.5:0.5b']
+    base_llms = ['gemini/gemini-3-flash-preview', 'gemini/gemini-3.1-flash-lite']
+    adv_llms = ['gemini/gemini-3-flash-preview', 'gemini/gemini-3.1-flash-lite']
     temperature = [0.2,0.7,1.0]
     num_samples = [2,3]
     num_trials = 5
@@ -125,7 +128,7 @@ async def main():
         #         "trial": i + 1,
         #     })
         try:
-            blog = await evaluator.aforward(query="Write a blog post about the benefits of meditation.")
+            blog = await evaluator.aforward(query="Write a Short blog post in about 5-7 sentences about the benefits of meditation.")
             latency = time.perf_counter() - start_time
             # mlflow.log_metrics({"latency": latency})
             results.append({

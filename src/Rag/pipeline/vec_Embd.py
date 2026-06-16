@@ -15,7 +15,6 @@ def embed_texts(texts):
     with torch.no_grad():
         model_output = model(**encoded_input)
     embeddings = model_output.last_hidden_state[:, 0, :].cpu().numpy()
-
     embeddings = embeddings / np.linalg.norm(embeddings, axis=1, keepdims=True)
     return embeddings
 

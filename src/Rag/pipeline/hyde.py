@@ -59,7 +59,7 @@ class MultiHopHydeSearch(dspy.Module):
 if __name__ == "__main__":
     import numpy as np
 
-    query = "Tourism"
+    query = "pseudocode"
     run_id = "1"
     k = 5
     n_hops = 3
